@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NexusMeet - Phần Mềm Họp Trực Tuyến Thời Gian Thực</title>
+  <meta name="description" content="Nền tảng họp trực tuyến WebRTC tốc độ cao, hỗ trợ video HD, chia sẻ màn hình, chia nhóm thảo luận và chat thời gian thực.">
+  
+  <!-- PWA & Mobile App Support -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#3b82f6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NexusMeet">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Socket.io client -->
+  <script src="/socket.io/socket.io.js"></script>
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Broadcast Announcement Banner -->
+  <div id="broadcast-banner" class="broadcast-banner hidden">
+    <div class="broadcast-content">
+      <span class="broadcast-badge">THÔNG BÁO TỪ HOST</span>
+      <span id="broadcast-message-text">---</span>
+    </div>
+  </div>
+
+  <!-- ================= LOBBY SCREEN ================= -->
+  <main id="lobby-screen" class="screen active">
+    <div class="lobby-background">
+      <div class="glow-orb orb-1"></div>
+      <div class="glow-orb orb-2"></div>
+      <div class="grid-overlay"></div>
+    </div>
+
+    <div class="lobby-container">
+      <header class="lobby-header">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11"/>
+              <rect x="2" y="6" width="14" height="12" rx="3"/>
+            </svg>
+          </div>
+          <span class="brand-name">Nexus<span class="highlight">Meet</span></span>
+          <span class="brand-badge">PRO</span>
+        </div>
+        <p class="brand-tagline">Họp trực tuyến WebRTC độ phân giải cao & chia nhóm thảo luận</p>
+      </header>
+
+      <div class="lobby-grid">
+        <!-- Media Preview Card -->
+        <div class="preview-card glass-panel">
+          <div class="preview-video-wrapper">
+            <video id="lobby-video-preview" autoplay playsinline muted></video>
+            <div id="lobby-video-off-placeholder" class="video-placeholder hidden">
+              <div class="avatar-large" id="lobby-avatar-preview">U</div>
+              <span>Camera đang tắt</span>
+            </div>
+            
+            <div class="preview-status-bar">
+              <div class="audio-level-indicator">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+                <div class="level-meter">
+                  <div id="mic-level-bar" class="level-bar-fill"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="preview-controls">
+              <button id="btn-toggle-lobby-mic" class="btn-circle btn-control active" title="Bật/Tắt Micro">
+                <svg class="icon-mic-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                <svg class="icon-mic-off hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+              </button>
+              <button id="btn-toggle-lobby-cam" class="btn-circle btn-control active" title="Bật/Tắt Camera">
+                <svg class="icon-cam-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11"/><rect x="2" y="6" width="14" height="12" rx="3"/></svg>
+                <svg class="icon-cam-off hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 2 20 20"/><path d="M10.41 10.41A2 2 0 0 0 12 14h2a2 2 0 0 0 1.59-.79"/><path d="M16 16v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="M22 8.5v7l-4-2.67"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Join Form Card -->
+        <div class="join-card glass-panel">
+          <h2>Tham Gia Cuộc Họp</h2>
+          <p class="join-subtext">Nhập tên của bạn và mã phòng để kết nối ngay lập tức.</p>
+
+          <form id="form-join-room" class="join-form">
+            <div class="input-group">
+              <label for="input-user-name">Tên hiển thị của bạn</label>
+              <div class="input-wrapper">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <input type="text" id="input-user-name" placeholder="Ví dụ: Nguyễn Văn A" required maxlength="30">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label for="input-room-id">Mã phòng họp (Room ID)</label>
+              <div class="input-wrapper">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <input type="text" id="input-room-id" placeholder="Nhập mã phòng hoặc tạo mới" required maxlength="20">
+                <button type="button" id="btn-generate-room" class="btn-sub-action" title="Tạo mã phòng ngẫu nhiên">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" id="btn-join-submit" class="btn-primary btn-large">
+                <span>Vào Phòng Họp</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+          </form>
+
+          <div class="join-features-list">
+            <div class="feature-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>Mã hóa WebRTC P2P</span>
+            </div>
+            <div class="feature-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span>Chia nhóm thảo luận</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= MEETING ROOM SCREEN ================= -->
+  <div id="room-screen" class="screen">
+    <!-- Meeting Header Bar -->
+    <header class="meeting-header glass-bar">
+      <div class="header-left">
+        <div class="brand-mini">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11"/><rect x="2" y="6" width="14" height="12" rx="3"/></svg>
+        </div>
+        <div class="meeting-info">
+          <h1 id="meeting-room-title" class="room-title">Phòng họp trực tuyến</h1>
+          <div class="room-badge-group">
+            <span class="badge badge-live">LIVE</span>
+            <button id="btn-copy-room-id" class="badge badge-room" title="Bấm để sao chép mã phòng">
+              <span id="display-room-id">ROOM-123</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <div id="breakout-subroom-tag" class="badge badge-breakout hidden">
+              <span>📍 <strong id="current-breakout-name">Nhóm 1</strong></span>
+              <button id="btn-leave-breakout-to-main" class="btn-text-action">Trở về phòng chính</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="timer-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="meeting-timer">00:00:00</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button id="btn-toggle-layout" class="btn-header-action" title="Chuyển đổi giao diện (Lưới / Diễn giả)">
+          <svg class="icon-grid-view" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <svg class="icon-speaker-view hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="12" rx="2"/><rect x="3" y="17" width="5" height="4" rx="1"/><rect x="10" y="17" width="5" height="4" rx="1"/><rect x="17" y="17" width="5" height="4" rx="1"/></svg>
+          <span id="text-layout-mode">Grid View</span>
+        </button>
+
+        <button id="btn-invite-modal" class="btn-header-action highlight" title="Mời người khác">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          <span>Mời người tham gia</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Stage Section -->
+    <div class="meeting-body">
+      <div id="stage-container" class="stage-container grid-mode">
+        <div id="screen-share-presentation" class="screen-share-view hidden">
+          <div class="screen-share-header">
+            <span id="screen-share-presenter-name">Đang chia sẻ màn hình</span>
+            <button id="btn-stop-my-screen-share" class="btn-small btn-danger hidden">Dừng chia sẻ</button>
+          </div>
+          <video id="screen-share-video" autoplay playsinline></video>
+        </div>
+
+        <div id="video-grid" class="video-grid grid-autofit">
+          <!-- Dynamic Video Tiles -->
+        </div>
+      </div>
+
+      <!-- Right Sidebar (Chat & Participants) -->
+      <aside id="meeting-sidebar" class="meeting-sidebar glass-panel hidden">
+        <div class="sidebar-header">
+          <div class="sidebar-tabs">
+            <button id="tab-participants" class="tab-btn active">
+              <span>Thành viên</span>
+              <span id="badge-participants-count" class="tab-count">1</span>
+            </button>
+            <button id="tab-chat" class="tab-btn">
+              <span>Trò chuyện</span>
+              <span id="badge-unread-chat" class="tab-count hidden">0</span>
+            </button>
+          </div>
+          <button id="btn-close-sidebar" class="btn-icon" title="Đóng thanh bên">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div id="panel-participants" class="sidebar-panel active">
+          <div id="host-quick-actions" class="host-actions-bar hidden">
+            <button id="btn-mute-all-participants" class="btn-small btn-secondary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+              <span>Tắt tiếng tất cả</span>
+            </button>
+          </div>
+          <ul id="participants-list" class="participants-list">
+            <!-- Dynamic participant items -->
+          </ul>
+        </div>
+
+        <div id="panel-chat" class="sidebar-panel">
+          <div id="chat-messages-container" class="chat-messages">
+            <div class="chat-system-notice">
+              <span>Cuộc họp được bảo mật mã hóa end-to-end WebRTC. Tin nhắn chỉ hiển thị trong phiên làm việc này.</span>
+            </div>
+          </div>
+          <form id="form-chat-send" class="chat-input-bar">
+            <input type="text" id="input-chat-message" placeholder="Gửi tin nhắn trong cuộc họp..." autocomplete="off" maxlength="500">
+            <button type="submit" class="btn-icon btn-send" title="Gửi tin nhắn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </form>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Floating Control Toolbar -->
+    <div class="meeting-footer">
+      <div class="control-bar glass-bar">
+        <!-- Mic Control -->
+        <div class="control-button-wrapper">
+          <button id="btn-toggle-mic" class="btn-control-main active" title="Tắt/Bật Micro">
+            <svg class="icon-mic-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            <svg class="icon-mic-off hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            <span class="control-label">Micro</span>
+          </button>
+        </div>
+
+        <!-- Video Cam Control -->
+        <div class="control-button-wrapper">
+          <button id="btn-toggle-cam" class="btn-control-main active" title="Tắt/Bật Camera">
+            <svg class="icon-cam-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11"/><rect x="2" y="6" width="14" height="12" rx="3"/></svg>
+            <svg class="icon-cam-off hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 2 20 20"/><path d="M10.41 10.41A2 2 0 0 0 12 14h2a2 2 0 0 0 1.59-.79"/><path d="M16 16v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="M22 8.5v7l-4-2.67"/></svg>
+            <span class="control-label">Camera</span>
+          </button>
+        </div>
+
+        <div class="control-divider"></div>
+
+        <!-- Share Screen -->
+        <button id="btn-share-screen" class="btn-control-main" title="Chia sẻ màn hình">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M12 7v6M9 10l3-3 3 3"/></svg>
+          <span class="control-label">Chia sẻ</span>
+        </button>
+
+        <!-- BREAKOUT ROOMS BUTTON -->
+        <button id="btn-breakout-rooms" class="btn-control-main" title="Chia nhóm thảo luận">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span class="control-label">Chia nhóm</span>
+        </button>
+
+        <!-- Hand Raise -->
+        <button id="btn-hand-raise" class="btn-control-main" title="Giơ tay phát biểu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 0 1 2 2v4a10 10 0 0 1-10 10 9 9 0 0 1-6-2.3L2 19"/></svg>
+          <span class="control-label">Giơ tay</span>
+        </button>
+
+        <!-- Reaction Picker Dropup -->
+        <div class="reaction-picker-container">
+          <button id="btn-reactions" class="btn-control-main" title="Thả cảm xúc">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+            <span class="control-label">Cảm xúc</span>
+          </button>
+          <div id="reaction-popup" class="reaction-popup glass-panel hidden">
+            <button class="btn-emoji-item" data-emoji="👏">👏</button>
+            <button class="btn-emoji-item" data-emoji="👍">👍</button>
+            <button class="btn-emoji-item" data-emoji="❤️">❤️</button>
+            <button class="btn-emoji-item" data-emoji="😂">😂</button>
+            <button class="btn-emoji-item" data-emoji="🎉">🎉</button>
+            <button class="btn-emoji-item" data-emoji="😮">😮</button>
+          </div>
+        </div>
+
+        <div class="control-divider"></div>
+
+        <!-- Participants Toggle -->
+        <button id="btn-toggle-sidebar-participants" class="btn-control-main" title="Danh sách thành viên">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span class="control-label">Thành viên</span>
+        </button>
+
+        <!-- Chat Toggle -->
+        <button id="btn-toggle-sidebar-chat" class="btn-control-main" title="Trò chuyện trong phòng">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span class="control-label">Chat</span>
+        </button>
+
+        <div class="control-divider"></div>
+
+        <!-- Leave Room Button -->
+        <button id="btn-leave-room" class="btn-control-leave" title="Rời khỏi cuộc họp">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          <span>Rời họp</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invite Link Modal -->
+  <div id="modal-invite" class="modal-backdrop hidden">
+    <div class="modal-box glass-panel">
+      <div class="modal-header">
+        <h3>Mời người tham gia cuộc họp</h3>
+        <button id="btn-close-invite-modal" class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <p>Chia sẻ đường link bên dưới hoặc gửi Mã phòng họp để mời đồng nghiệp vào họp:</p>
+        <div class="input-copy-group">
+          <input type="text" id="input-invite-link" readonly>
+          <button id="btn-copy-invite-link" class="btn-primary">Sao chép Link</button>
+        </div>
+        <div class="invite-info-row">
+          <span>Mã phòng họp (Room ID):</span>
+          <strong id="modal-room-id-text">---</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BREAKOUT ROOMS MANAGEMENT MODAL -->
+  <div id="modal-breakout-rooms" class="modal-backdrop hidden">
+    <div class="modal-box glass-panel modal-wide">
+      <div class="modal-header">
+        <h3>Chia Nhóm Thảo Luận (Breakout Rooms)</h3>
+        <button id="btn-close-breakout-modal" class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      
+      <div id="breakout-step-create" class="modal-body">
+        <p>Tự động chia thành viên hiện tại trong cuộc họp vào các nhóm thảo luận riêng biệt.</p>
+
+        <div class="breakout-config-form">
+          <div class="config-row">
+            <label for="select-breakout-count">Số lượng nhóm thảo luận:</label>
+            <select id="select-breakout-count" class="custom-select">
+              <option value="2">2 nhóm</option>
+              <option value="3">3 nhóm</option>
+              <option value="4">4 nhóm</option>
+              <option value="5">5 nhóm</option>
+              <option value="6">6 nhóm</option>
+            </select>
+          </div>
+
+          <div class="config-row">
+            <label>Phân bổ thành viên:</label>
+            <div class="radio-group">
+              <label><input type="radio" name="breakout-assign" value="auto" checked> Chia ngẫu nhiên (Tự động)</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions-right">
+          <button id="btn-start-breakout-rooms" class="btn-primary">Bắt Đầu Thảo Luận</button>
+        </div>
+      </div>
+
+      <div id="breakout-step-active" class="modal-body hidden">
+        <div class="breakout-active-bar">
+          <span class="status-dot-active"></span>
+          <span>Các nhóm thảo luận đang diễn ra</span>
+        </div>
+
+        <div id="breakout-rooms-preview-list" class="breakout-rooms-list">
+          <!-- Dynamic rooms list -->
+        </div>
+
+        <div class="broadcast-section">
+          <label for="input-broadcast-text">Phát thông báo tới tất cả các nhóm:</label>
+          <div class="input-copy-group">
+            <input type="text" id="input-broadcast-text" placeholder="Nhập thông báo gửi toàn bộ nhóm..." maxlength="200">
+            <button id="btn-send-broadcast" class="btn-secondary">Gửi Thông Báo</button>
+          </div>
+        </div>
+
+        <div class="modal-actions-space">
+          <button id="btn-close-all-breakout-rooms" class="btn-danger">Kết Thúc & Gọi Về Phòng Chính</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic JS -->
+  <script src="app.js"></script>
+</body>
+</html>
