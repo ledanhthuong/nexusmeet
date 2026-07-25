@@ -49,7 +49,9 @@
     recordedChunks: [],
     recordStartTime: null,
     recordTimerInterval: null,
-    recordingStream: null
+    recordingStream: null,
+    tempRecordingTracks: [],
+    recordingAudioCtx: null
   };
 
   const DOM = {
@@ -1211,6 +1213,7 @@
     try {
       let videoTracks = [];
       let displayStream = null;
+      state.tempRecordingTracks = [];
 
       // 1. Try Screen Capture if supported (Desktop & supported mobile browsers)
       if (navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function') {
@@ -1222,6 +1225,7 @@
           });
           if (displayStream) {
             videoTracks = displayStream.getVideoTracks();
+            displayStream.getTracks().forEach(track => state.tempRecordingTracks.push(track));
           }
         } catch (displayErr) {
           console.warn('getDisplayMedia failed or unsupported on this device, using camera fallback:', displayErr);
@@ -1231,8 +1235,9 @@
       // 2. Mobile Device Fallback: Use Local Camera or Canvas Video Track if screen capture unavailable
       if (videoTracks.length === 0) {
         if (state.localStream && state.localStream.getVideoTracks().length > 0) {
+          // Do NOT add localStream tracks to tempRecordingTracks so live camera stays active after recording!
           videoTracks = state.localStream.getVideoTracks();
-          showToast('🔴 Đang ghi hình Camera & Micro cuộc họp (Chế độ Mobile)...', 'info');
+          showToast('🔴 Đang ghi hình Camera & Micro cuộc họp...', 'info');
         } else {
           // Generate a simple canvas placeholder track for audio-only / mobile background recording
           const canvas = document.createElement('canvas');
@@ -1248,16 +1253,18 @@
           ctx.fillStyle = '#ffffff';
           ctx.font = '22px sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('Marists_meet Recording (Mobile)', 320, 280);
+          ctx.fillText('Marists_meet Recording', 320, 280);
 
           const canvasStream = canvas.captureStream(15);
           videoTracks = canvasStream.getVideoTracks();
-          showToast('🔴 Đang ghi âm cuộc họp MP4 (Chế độ Mobile)...', 'info');
+          canvasStream.getTracks().forEach(track => state.tempRecordingTracks.push(track));
+          showToast('🔴 Đang ghi âm cuộc họp MP4...', 'info');
         }
       }
 
       // 3. Mix Audio Sources (Local Mic + Remote Peer Audio Tracks + Display System Audio)
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      state.recordingAudioCtx = audioCtx;
       const audioDestination = audioCtx.createMediaStreamDestination();
 
       // Add local microphone audio if available
@@ -1364,10 +1371,21 @@
       state.mediaRecorder.stop();
     }
 
-    if (state.recordingStream) {
-      state.recordingStream.getTracks().forEach(track => track.stop());
-      state.recordingStream = null;
+    // Stop only temporary recording tracks (screen capture / canvas stream), NEVER local camera tracks!
+    if (state.tempRecordingTracks && state.tempRecordingTracks.length > 0) {
+      state.tempRecordingTracks.forEach(track => {
+        try { track.stop(); } catch (e) {}
+      });
+      state.tempRecordingTracks = [];
     }
+
+    // Close temporary AudioContext for mixing
+    if (state.recordingAudioCtx) {
+      try { state.recordingAudioCtx.close(); } catch (e) {}
+      state.recordingAudioCtx = null;
+    }
+
+    state.recordingStream = null;
 
     if (state.recordTimerInterval) {
       clearInterval(state.recordTimerInterval);
