@@ -41,7 +41,15 @@
     audioContext: null,
     unreadChatCount: 0,
 
-    activeSidebarTab: 'participants'
+    activeSidebarTab: 'participants',
+
+    // MP4 Recording state
+    isRecording: false,
+    mediaRecorder: null,
+    recordedChunks: [],
+    recordStartTime: null,
+    recordTimerInterval: null,
+    recordingStream: null
   };
 
   const DOM = {
@@ -102,6 +110,10 @@
     btnToggleMic: document.getElementById('btn-toggle-mic'),
     btnToggleCam: document.getElementById('btn-toggle-cam'),
     btnShareScreen: document.getElementById('btn-share-screen'),
+    btnToggleRecord: document.getElementById('btn-toggle-record'),
+    labelRecBtn: document.getElementById('label-rec-btn'),
+    recordingStatusBadge: document.getElementById('recording-status-badge'),
+    recordingTimer: document.getElementById('recording-timer'),
     btnBreakoutRooms: document.getElementById('btn-breakout-rooms'),
     btnHandRaise: document.getElementById('btn-hand-raise'),
     btnReactions: document.getElementById('btn-reactions'),
@@ -810,6 +822,9 @@
     DOM.btnToggleMic.addEventListener('click', toggleMic);
     DOM.btnToggleCam.addEventListener('click', toggleCam);
     DOM.btnShareScreen.addEventListener('click', toggleScreenShare);
+    if (DOM.btnToggleRecord) {
+      DOM.btnToggleRecord.addEventListener('click', toggleMP4Recording);
+    }
     DOM.btnBreakoutRooms.addEventListener('click', openBreakoutModal);
     DOM.btnHandRaise.addEventListener('click', toggleHandRaise);
     DOM.btnReactions.addEventListener('click', () => DOM.reactionPopup.classList.toggle('hidden'));
@@ -1160,8 +1175,258 @@
     });
   }
 
+  /* ==========================================================================
+     7. MP4 RECORDING ENGINE
+     ========================================================================== */
+  function toggleMP4Recording() {
+    if (state.isRecording) {
+      stopMP4Recording();
+    } else {
+      startMP4Recording();
+    }
+  }
+
+  function getSupportedMP4MimeType() {
+    const types = [
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4;codecs=h264,aac',
+      'video/mp4',
+      'video/webm;codecs=h264',
+      'video/webm;codecs=vp9,opus',
+      'video/webm'
+    ];
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return '';
+  }
+
+  function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+  }
+
+  async function startMP4Recording() {
+    try {
+      let videoTracks = [];
+      let displayStream = null;
+
+      // 1. Try Screen Capture if supported (Desktop & supported mobile browsers)
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function') {
+        try {
+          showToast('Đang chọn màn hình/cửa sổ để ghi hình MP4...', 'info');
+          displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { displaySurface: 'monitor', frameRate: { ideal: 30, max: 60 } },
+            audio: true
+          });
+          if (displayStream) {
+            videoTracks = displayStream.getVideoTracks();
+          }
+        } catch (displayErr) {
+          console.warn('getDisplayMedia failed or unsupported on this device, using camera fallback:', displayErr);
+        }
+      }
+
+      // 2. Mobile Device Fallback: Use Local Camera or Canvas Video Track if screen capture unavailable
+      if (videoTracks.length === 0) {
+        if (state.localStream && state.localStream.getVideoTracks().length > 0) {
+          videoTracks = state.localStream.getVideoTracks();
+          showToast('🔴 Đang ghi hình Camera & Micro cuộc họp (Chế độ Mobile)...', 'info');
+        } else {
+          // Generate a simple canvas placeholder track for audio-only / mobile background recording
+          const canvas = document.createElement('canvas');
+          canvas.width = 640;
+          canvas.height = 480;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(0, 0, 640, 480);
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.arc(320, 200, 40, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '22px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('NexusMeet Recording (Mobile)', 320, 280);
+
+          const canvasStream = canvas.captureStream(15);
+          videoTracks = canvasStream.getVideoTracks();
+          showToast('🔴 Đang ghi âm cuộc họp MP4 (Chế độ Mobile)...', 'info');
+        }
+      }
+
+      // 3. Mix Audio Sources (Local Mic + Remote Peer Audio Tracks + Display System Audio)
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioDestination = audioCtx.createMediaStreamDestination();
+
+      // Add local microphone audio if available
+      if (state.localStream && state.localStream.getAudioTracks().length > 0) {
+        const localSource = audioCtx.createMediaStreamSource(state.localStream);
+        localSource.connect(audioDestination);
+      }
+
+      // Add screen display audio if captured
+      if (displayStream && displayStream.getAudioTracks().length > 0) {
+        const displayAudioSource = audioCtx.createMediaStreamSource(new MediaStream(displayStream.getAudioTracks()));
+        displayAudioSource.connect(audioDestination);
+      }
+
+      // Add all active remote participant audio tracks
+      Object.values(state.remoteStreams).forEach(remoteStream => {
+        if (remoteStream && remoteStream.getAudioTracks().length > 0) {
+          try {
+            const remoteSource = audioCtx.createMediaStreamSource(remoteStream);
+            remoteSource.connect(audioDestination);
+          } catch (e) {
+            console.warn('Error connecting remote audio stream:', e);
+          }
+        }
+      });
+
+      // 4. Create final composite MediaStream (Video + Mixed Audio)
+      const compositeStream = new MediaStream();
+      videoTracks.forEach(track => compositeStream.addTrack(track));
+      audioDestination.stream.getAudioTracks().forEach(track => compositeStream.addTrack(track));
+
+      state.recordingStream = compositeStream;
+
+      // 5. Setup MediaRecorder with best MIME type
+      const mimeType = getSupportedMP4MimeType();
+      const options = mimeType ? { mimeType } : {};
+
+      state.recordedChunks = [];
+      state.mediaRecorder = new MediaRecorder(compositeStream, options);
+
+      state.mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          state.recordedChunks.push(event.data);
+        }
+      };
+
+      state.mediaRecorder.onstop = () => {
+        saveMP4File(mimeType);
+      };
+
+      // Automatically stop recording if display screen track ends
+      if (displayStream && displayStream.getVideoTracks().length > 0) {
+        displayStream.getVideoTracks()[0].onended = () => {
+          if (state.isRecording) {
+            stopMP4Recording();
+          }
+        };
+      }
+
+      state.mediaRecorder.start(1000);
+      state.isRecording = true;
+      state.recordStartTime = Date.now();
+
+      // 5. Update UI
+      if (DOM.btnToggleRecord) {
+        DOM.btnToggleRecord.classList.add('active-recording');
+        const iconOff = DOM.btnToggleRecord.querySelector('.icon-rec-off');
+        const iconOn = DOM.btnToggleRecord.querySelector('.icon-rec-on');
+        if (iconOff) iconOff.classList.add('hidden');
+        if (iconOn) iconOn.classList.remove('hidden');
+        if (DOM.labelRecBtn) DOM.labelRecBtn.textContent = 'Dừng ghi';
+      }
+
+      if (DOM.recordingStatusBadge) {
+        DOM.recordingStatusBadge.classList.remove('hidden');
+      }
+
+      // Start recording timer
+      state.recordTimerInterval = setInterval(updateRecordTimerUI, 1000);
+      updateRecordTimerUI();
+
+      showToast('🔴 Đang ghi hình & ghi âm MP4 cuộc họp!', 'success');
+
+    } catch (err) {
+      console.error('Lỗi khởi tạo ghi hình MP4:', err);
+      showToast('Không thể bắt đầu ghi hình. Vui lòng cấp quyền chia sẻ màn hình.', 'error');
+    }
+  }
+
+  function updateRecordTimerUI() {
+    if (!state.recordStartTime || !DOM.recordingTimer) return;
+    const elapsedMs = Date.now() - state.recordStartTime;
+    const totalSeconds = Math.floor(elapsedMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    DOM.recordingTimer.textContent = 
+      `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function stopMP4Recording() {
+    if (!state.isRecording) return;
+
+    if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+      state.mediaRecorder.stop();
+    }
+
+    if (state.recordingStream) {
+      state.recordingStream.getTracks().forEach(track => track.stop());
+      state.recordingStream = null;
+    }
+
+    if (state.recordTimerInterval) {
+      clearInterval(state.recordTimerInterval);
+      state.recordTimerInterval = null;
+    }
+
+    state.isRecording = false;
+
+    // Reset UI
+    if (DOM.btnToggleRecord) {
+      DOM.btnToggleRecord.classList.remove('active-recording');
+      const iconOff = DOM.btnToggleRecord.querySelector('.icon-rec-off');
+      const iconOn = DOM.btnToggleRecord.querySelector('.icon-rec-on');
+      if (iconOff) iconOff.classList.remove('hidden');
+      if (iconOn) iconOn.classList.add('hidden');
+      if (DOM.labelRecBtn) DOM.labelRecBtn.textContent = 'Ghi MP4';
+    }
+
+    if (DOM.recordingStatusBadge) {
+      DOM.recordingStatusBadge.classList.add('hidden');
+    }
+  }
+
+  function saveMP4File(mimeType) {
+    if (!state.recordedChunks || state.recordedChunks.length === 0) {
+      showToast('Không có dữ liệu video được ghi lại.', 'warning');
+      return;
+    }
+
+    const blobType = mimeType || 'video/mp4';
+
+    const blob = new Blob(state.recordedChunks, { type: blobType });
+    const url = URL.createObjectURL(blob);
+
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10);
+    const timeStr = `${now.getHours()}-${now.getMinutes()}-${now.getSeconds()}`;
+    const filename = `NexusMeet_Record_${state.roomId || 'Session'}_${dateStr}_${timeStr}.mp4`;
+
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+
+    showToast(`✅ Đã tải file ghi hình (${filename}) thành công!`, 'success');
+  }
+
   function leaveMeeting() {
     if (confirm('Bạn có chắc chắn muốn rời khỏi cuộc họp?')) {
+      if (state.isRecording) {
+        stopMP4Recording();
+      }
       if (state.socket) state.socket.disconnect();
       window.location.href = window.location.pathname;
     }

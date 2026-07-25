@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>NexusMeet - Phần Mềm Họp Trực Tuyến Thời Gian Thực</title>
   <meta name="description" content="Nền tảng họp trực tuyến WebRTC tốc độ cao, hỗ trợ video HD, chia sẻ màn hình, chia nhóm thảo luận và chat thời gian thực.">
   
@@ -172,6 +172,11 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span id="meeting-timer">00:00:00</span>
         </div>
+        <div id="recording-status-badge" class="badge badge-recording hidden">
+          <span class="rec-dot"></span>
+          <span>REC</span>
+          <span id="recording-timer">00:00</span>
+        </div>
       </div>
 
       <div class="header-right">
@@ -277,6 +282,18 @@
         <button id="btn-share-screen" class="btn-control-main" title="Chia sẻ màn hình">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M12 7v6M9 10l3-3 3 3"/></svg>
           <span class="control-label">Chia sẻ</span>
+        </button>
+
+        <!-- Record MP4 Button -->
+        <button id="btn-toggle-record" class="btn-control-main" title="Ghi hình / Ghi âm MP4 cuộc họp">
+          <svg class="icon-rec-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9"/>
+            <circle cx="12" cy="12" r="4" fill="#ef4444"/>
+          </svg>
+          <svg class="icon-rec-on hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="7" y="7" width="10" height="10" rx="1.5" fill="#ef4444"/>
+          </svg>
+          <span class="control-label" id="label-rec-btn">Ghi MP4</span>
         </button>
 
         <!-- BREAKOUT ROOMS BUTTON -->

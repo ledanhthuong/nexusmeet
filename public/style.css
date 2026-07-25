@@ -1306,3 +1306,288 @@ svg {
   from { transform: translateX(100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
+
+/* ================= RECORDING MP4 STYLES ================= */
+.badge-recording {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+}
+
+.rec-dot {
+  width: 10px;
+  height: 10px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #ef4444;
+  animation: recPulse 1.2s infinite alternate;
+}
+
+@keyframes recPulse {
+  0% { transform: scale(0.85); opacity: 0.4; }
+  100% { transform: scale(1.2); opacity: 1; }
+}
+
+#btn-toggle-record.active-recording {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #ef4444;
+  animation: recBorderGlow 1.5s infinite alternate;
+}
+
+#btn-toggle-record.active-recording .control-label {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+@keyframes recBorderGlow {
+  from { box-shadow: 0 0 5px rgba(239, 68, 68, 0.3); }
+  to { box-shadow: 0 0 15px rgba(239, 68, 68, 0.8); }
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVE & TOUCH OPTIMIZATION (iOS / Android / Tablets)
+   ========================================================================== */
+
+/* Touch-friendly Base & Safe Area Inset */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 768px) {
+  /* --- 1. LOBBY RESPONSIVE --- */
+  .lobby-container {
+    padding: 16px 12px;
+    max-width: 100%;
+  }
+
+  .lobby-header {
+    margin-bottom: 20px;
+  }
+
+  .brand-name {
+    font-size: 1.6rem;
+  }
+
+  .brand-tagline {
+    font-size: 0.85rem;
+    padding: 0 10px;
+  }
+
+  .lobby-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .preview-video-wrapper {
+    height: 220px;
+  }
+
+  .join-card {
+    padding: 20px 16px;
+  }
+
+  /* --- 2. MEETING HEADER RESPONSIVE --- */
+  .meeting-header {
+    padding: 8px 10px;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  .brand-mini {
+    display: none;
+  }
+
+  .room-title {
+    font-size: 0.88rem;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .badge-live {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+  }
+
+  .badge-room {
+    font-size: 0.72rem;
+    padding: 2px 6px;
+  }
+
+  .timer-badge {
+    padding: 4px 8px;
+    font-size: 0.78rem;
+  }
+
+  .badge-recording {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    margin-left: 4px;
+  }
+
+  .header-right {
+    gap: 6px;
+  }
+
+  .btn-header-action span {
+    display: none; /* Hide button text on mobile header to fit icons */
+  }
+
+  .btn-header-action {
+    padding: 8px;
+    min-width: 38px;
+    min-height: 38px;
+    justify-content: center;
+  }
+
+  /* --- 3. MEETING STAGE & VIDEO GRID --- */
+  .meeting-body {
+    padding: 6px;
+  }
+
+  .stage-container {
+    padding: 4px;
+    gap: 6px;
+  }
+
+  .video-tile {
+    border-radius: 12px;
+  }
+
+  .tile-user-name {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    bottom: 8px;
+    left: 8px;
+  }
+
+  .avatar-medium {
+    width: 60px;
+    height: 60px;
+    font-size: 1.4rem;
+  }
+
+  /* --- 4. FLOATING CONTROL TOOLBAR ON MOBILE --- */
+  .meeting-footer {
+    padding: 8px 8px max(8px, env(safe-area-inset-bottom)) 8px;
+  }
+
+  .control-bar {
+    width: 100%;
+    max-width: 100%;
+    padding: 6px 10px;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+    border-radius: 28px;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .control-bar::-webkit-scrollbar {
+    display: none; /* Chrome / Safari */
+  }
+
+  .btn-control-main {
+    min-width: 48px;
+    min-height: 48px;
+    padding: 6px 10px;
+    flex-shrink: 0;
+  }
+
+  .btn-control-main svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .control-label {
+    font-size: 0.65rem;
+    margin-top: 2px;
+    white-space: nowrap;
+  }
+
+  .control-divider {
+    height: 28px;
+    margin: 0 2px;
+    flex-shrink: 0;
+  }
+
+  /* --- 5. MOBILE FULL-SCREEN SIDEBAR --- */
+  .meeting-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 1000;
+    border-radius: 0;
+    background: rgba(15, 23, 42, 0.98);
+    backdrop-filter: blur(20px);
+  }
+
+  .sidebar-header {
+    padding: 16px;
+  }
+
+  .sidebar-content {
+    padding: 16px;
+  }
+
+  /* --- 6. MODALS ON MOBILE --- */
+  .modal-content {
+    width: 92%;
+    max-width: 400px;
+    padding: 20px 16px;
+    border-radius: 16px;
+  }
+
+  .toast-container {
+    bottom: 85px;
+    right: 12px;
+    left: 12px;
+    max-width: calc(100% - 24px);
+  }
+
+  .toast {
+    font-size: 0.82rem;
+    padding: 10px 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .room-title {
+    display: none; /* Hide title on very narrow screens */
+  }
+  
+  .timer-badge svg {
+    display: none;
+  }
+  
+  .preview-video-wrapper {
+    height: 190px;
+  }
+
+  .btn-control-main {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 4px 8px;
+  }
+
+  .control-label {
+    font-size: 0.6rem;
+  }
+}
