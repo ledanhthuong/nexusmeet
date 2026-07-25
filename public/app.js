@@ -51,7 +51,8 @@
     recordTimerInterval: null,
     recordingStream: null,
     tempRecordingTracks: [],
-    recordingAudioCtx: null
+    recordingAudioCtx: null,
+    recordingAudioDestination: null
   };
 
   const DOM = {
@@ -537,11 +538,25 @@
     peer.ontrack = (event) => {
       const remoteStream = event.streams[0];
       state.remoteStreams[targetSocketId] = remoteStream;
+      addAudioTrackToRecordingMix(remoteStream);
       const userName = participantInfo ? participantInfo.userName : (state.participantsMap[targetSocketId]?.userName || 'Participant');
       addOrUpdateVideoTile(targetSocketId, userName, remoteStream, false);
     };
 
     return peer;
+  }
+
+  function addAudioTrackToRecordingMix(stream) {
+    if (state.isRecording && state.recordingAudioCtx && state.recordingAudioDestination && stream) {
+      if (stream.getAudioTracks().length > 0) {
+        try {
+          const source = state.recordingAudioCtx.createMediaStreamSource(stream);
+          source.connect(state.recordingAudioDestination);
+        } catch (e) {
+          console.warn('Error connecting new participant audio stream to recording mix:', e);
+        }
+      }
+    }
   }
 
   function removePeerConnection(targetSocketId) {
@@ -1266,6 +1281,7 @@
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       state.recordingAudioCtx = audioCtx;
       const audioDestination = audioCtx.createMediaStreamDestination();
+      state.recordingAudioDestination = audioDestination;
 
       // Add local microphone audio if available
       if (state.localStream && state.localStream.getAudioTracks().length > 0) {
@@ -1346,7 +1362,7 @@
       state.recordTimerInterval = setInterval(updateRecordTimerUI, 1000);
       updateRecordTimerUI();
 
-      showToast('🔴 Đang ghi hình & ghi âm MP4 cuộc họp!', 'success');
+      showToast('🔴 Đang ghi MP4 toàn bộ cuộc họp (Video & Tất cả giọng nói)!', 'success');
 
     } catch (err) {
       console.error('Lỗi khởi tạo ghi hình MP4:', err);
@@ -1385,6 +1401,7 @@
       state.recordingAudioCtx = null;
     }
 
+    state.recordingAudioDestination = null;
     state.recordingStream = null;
 
     if (state.recordTimerInterval) {
