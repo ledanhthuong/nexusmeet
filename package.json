@@ -1,5 +1,5 @@
 {
-  "name": "zoom-clone",
+  "name": "marists_meet",
   "version": "1.0.0",
   "description": "Real-time Video Conferencing Application with WebRTC and Socket.io",
   "main": "server.js",

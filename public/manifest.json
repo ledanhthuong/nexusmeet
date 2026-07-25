@@ -1,6 +1,6 @@
 {
-  "name": "NexusMeet - WebRTC Video Conferencing",
-  "short_name": "NexusMeet",
+  "name": "Marists_meet - WebRTC Video Conferencing",
+  "short_name": "Marists_meet",
   "description": "Phần mềm họp trực tuyến thời gian thực, chia nhóm thảo luận và chia sẻ màn hình.",
   "start_url": "/",
   "display": "standalone",

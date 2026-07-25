@@ -170,7 +170,7 @@
   }
 
   function generateRandomRoomId() {
-    DOM.inputRoomId.value = 'nexus-' + Math.floor(100000 + Math.random() * 900000);
+    DOM.inputRoomId.value = 'marists-' + Math.floor(100000 + Math.random() * 900000);
   }
 
   async function getLobbyMediaStream() {
@@ -1248,7 +1248,7 @@
           ctx.fillStyle = '#ffffff';
           ctx.font = '22px sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('NexusMeet Recording (Mobile)', 320, 280);
+          ctx.fillText('Marists_meet Recording (Mobile)', 320, 280);
 
           const canvasStream = canvas.captureStream(15);
           videoTracks = canvasStream.getVideoTracks();
@@ -1405,7 +1405,7 @@
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10);
     const timeStr = `${now.getHours()}-${now.getMinutes()}-${now.getSeconds()}`;
-    const filename = `NexusMeet_Record_${state.roomId || 'Session'}_${dateStr}_${timeStr}.mp4`;
+    const filename = `Marists_meet_Record_${state.roomId || 'Session'}_${dateStr}_${timeStr}.mp4`;
 
     const a = document.createElement('a');
     a.style.display = 'none';
